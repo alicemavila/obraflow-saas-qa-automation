@@ -1,0 +1,25 @@
+{
+  "name": "obraflow-saas-qa-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suíte de automação E2E e API para o ObraFlow SaaS, usando Playwright + TypeScript e Page Object Model.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:auth": "playwright test tests/e2e/auth",
+    "test:worksites": "playwright test tests/e2e/worksites",
+    "test:api": "playwright test tests/api",
+    "report": "playwright show-report",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^20.17.10",
+    "dotenv": "^16.4.7",
+    "typescript": "^5.7.2"
+  }
+}

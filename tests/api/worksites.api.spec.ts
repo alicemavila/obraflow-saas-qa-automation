@@ -1,31 +1,38 @@
 import { test, expect } from '@playwright/test'
+
 import { authStatePath } from '../../utils/auth'
 
 /**
- * Payload mínimo para o endpoint de cadastro simples de obra.
+ * Payload mínimo válido para criação de obra via API.
  *
- * Regras de negócio do MVP:
- * - O cadastro simples exige apenas `name`.
- * - A empresa é inferida automaticamente pelo usuário autenticado.
- * - Endereço, responsável, contrato e dados técnicos são opcionais.
- * - A obra é criada com status INCOMPLETE / isComplete = false.
+ * Contrato atual da API:
+ * - name é obrigatório
+ * - status é obrigatório
+ * - registrationMode SIMPLE mantém a obra como cadastro incompleto
+ * - groupId é opcional na API
+ * - endereço, responsável, contrato e dados técnicos são opcionais no modo simples
  */
 function minimalWorksitePayload() {
   const suffix = Date.now()
-  return { name: `Obra API Mínima ${suffix}` }
+
+  return {
+    name: `Obra API Mínima ${suffix}`,
+    status: 'PLANEJAMENTO',
+    registrationMode: 'SIMPLE',
+  }
 }
 
 test.use({ storageState: authStatePath('admin') })
 
 test.describe('API — Obras', () => {
-  test('@api @smoke cria obra via API com payload mínimo (cadastro simples)', async ({ request }) => {
+  test('@api @smoke cria obra via API com payload mínimo válido', async ({ request }) => {
     const data = minimalWorksitePayload()
 
     const response = await request.post('/api/worksites', { data })
 
-    // Debug: loga o body completo se o status não for o esperado
     if (response.status() !== 201) {
       const body = await response.json().catch(() => response.text())
+
       console.error('[debug] POST /api/worksites status:', response.status())
       console.error('[debug] response body:', JSON.stringify(body, null, 2))
     }
@@ -33,20 +40,21 @@ test.describe('API — Obras', () => {
     expect(response.status()).toBe(201)
 
     const body = await response.json()
-    // A obra deve ser criada com id, name e marcada como incompleta
-    expect(body.data).toMatchObject({ name: data.name })
+
+    expect(body.data).toMatchObject({
+      name: data.name,
+      status: 'PLANEJAMENTO',
+      registrationMode: 'SIMPLE',
+      isProfileComplete: false,
+    })
+
     expect(body.data.id).toBeTruthy()
-    // Aceita qualquer convenção que o backend use para "incompleto"
-    const isIncomplete =
-      body.data.isComplete === false ||
-      body.data.status === 'INCOMPLETE' ||
-      body.data.isComplete === null
-    expect(isIncomplete, 'A obra criada via cadastro simples deve estar marcada como incompleta').toBe(true)
   })
 
   test('@api @regression bloqueia previsão de conclusão anterior à data de início (422)', async ({ request }) => {
     const today = new Date()
     const past = new Date(today)
+
     past.setDate(today.getDate() - 10)
 
     const data = {
@@ -57,28 +65,39 @@ test.describe('API — Obras', () => {
 
     const response = await request.post('/api/worksites', { data })
 
-    // A API usa Zod + handleError -> erros de validação retornam 422, não 400.
     expect(response.status()).toBe(422)
+
     const body = await response.json()
+
     expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(JSON.stringify(body.error.details)).toContain('endDateForecast')
   })
 
   test('@api @regression bloqueia payload sem campos obrigatórios (422)', async ({ request }) => {
     const response = await request.post('/api/worksites', { data: {} })
 
     expect(response.status()).toBe(422)
+
     const body = await response.json()
+
+    expect(body.error.code).toBe('VALIDATION_ERROR')
     expect(Array.isArray(body.error.details)).toBe(true)
     expect(body.error.details.length).toBeGreaterThan(0)
+
+    const details = JSON.stringify(body.error.details)
+
+    expect(details).toContain('name')
+    expect(details).toContain('status')
   })
 
   test('@api @regression lista obras da própria empresa', async ({ request }) => {
     const response = await request.get('/api/worksites')
 
     expect(response.status()).toBe(200)
+
     const body = await response.json()
+
     expect(Array.isArray(body.data.data)).toBe(true)
     expect(body.data.meta).toHaveProperty('total')
   })
 })
-

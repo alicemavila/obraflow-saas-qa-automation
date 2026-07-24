@@ -1,9 +1,11 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 import { LoginPage } from '../../../pages/LoginPage'
 import { WorksiteFormPage } from '../../../pages/WorksiteFormPage'
 import { WorksitesPage } from '../../../pages/WorksitesPage'
+
 import { adminUser } from '../../../fixtures/users'
+
 import {
   generateCompleteWorksite,
   generateWorksiteWithInvalidDateRange,
@@ -14,6 +16,7 @@ test.describe('Obras — Cadastro completo', () => {
     const loginPage = new LoginPage(page)
 
     await loginPage.goto()
+
     await loginPage.loginAndWaitForRedirect(
       adminUser.email,
       adminUser.password,
@@ -31,17 +34,34 @@ test.describe('Obras — Cadastro completo', () => {
     await worksitesPage.expectLoaded()
 
     await worksitesPage.openAddWorksite()
+    await form.expectModalVisible()
+
+    /*
+     * A seleção explícita preserva a validação do comportamento
+     * do botão. fillWorksite não clicará novamente porque a seleção
+     * agora é idempotente.
+     */
     await form.selectCompleteRegistration()
     await form.expectOptionalFieldsVisible()
 
     await form.fillWorksite(data)
     await form.submit()
 
-    await page.waitForURL(/\/obras\/[\w-]{20,}$/, { timeout: 30_000 })
+    await page.waitForURL(/\/obras\/[\w-]{20,}$/, {
+      timeout: 30_000,
+    })
 
-    await expect(page.getByText(data.name)).toBeVisible()
-    await expect(page.getByText(data.clientName!)).toBeVisible()
-    await expect(page.getByText(data.responsibleName!)).toBeVisible()
+    await expect(
+      page.getByText(data.name).first(),
+    ).toBeVisible()
+
+    await expect(
+      page.getByText(data.clientName!).first(),
+    ).toBeVisible()
+
+    await expect(
+      page.getByText(data.responsibleName!).first(),
+    ).toBeVisible()
   })
 
   test('@regression @worksites bloqueia previsão de conclusão anterior à data de início', async ({
@@ -49,13 +69,17 @@ test.describe('Obras — Cadastro completo', () => {
   }) => {
     const worksitesPage = new WorksitesPage(page)
     const form = new WorksiteFormPage(page)
+
     const data = generateWorksiteWithInvalidDateRange()
 
     await worksitesPage.goto()
     await worksitesPage.expectLoaded()
 
     await worksitesPage.openAddWorksite()
+    await form.expectModalVisible()
+
     await form.selectCompleteRegistration()
+    await form.expectOptionalFieldsVisible()
 
     await form.fillWorksite(data)
     await form.submit()
@@ -64,9 +88,7 @@ test.describe('Obras — Cadastro completo', () => {
       /previsão de término não pode ser anterior à data de início/i,
     )
 
-    await expect(
-      page.getByRole('heading', { name: /adicionar obra/i }),
-    ).toBeVisible()
+    await form.expectModalVisible()
   })
 
   test('@regression @worksites mantém os dados preenchidos após corrigir um erro e reenviar', async ({
@@ -74,13 +96,17 @@ test.describe('Obras — Cadastro completo', () => {
   }) => {
     const worksitesPage = new WorksitesPage(page)
     const form = new WorksiteFormPage(page)
+
     const data = generateCompleteWorksite()
 
     await worksitesPage.goto()
     await worksitesPage.expectLoaded()
 
     await worksitesPage.openAddWorksite()
+    await form.expectModalVisible()
+
     await form.selectCompleteRegistration()
+    await form.expectOptionalFieldsVisible()
 
     await form.fillWorksite({
       ...data,
@@ -95,10 +121,18 @@ test.describe('Obras — Cadastro completo', () => {
 
     await expect(form.nameInput).toHaveValue(data.name)
 
-    await form.responsibleNameInput.fill(data.responsibleName!)
+    await form.responsibleNameInput.fill(
+      data.responsibleName!,
+    )
+
     await form.submit()
 
-    await page.waitForURL(/\/obras\/[\w-]{20,}$/, { timeout: 30_000 })
-    await expect(page.getByText(data.name)).toBeVisible()
+    await page.waitForURL(/\/obras\/[\w-]{20,}$/, {
+      timeout: 30_000,
+    })
+
+    await expect(
+      page.getByText(data.name).first(),
+    ).toBeVisible()
   })
 })

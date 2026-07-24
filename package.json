@@ -5,6 +5,11 @@
   "description": "Suíte de automação E2E e API para o ObraFlow SaaS, usando Playwright + TypeScript e Page Object Model.",
   "scripts": {
     "test": "playwright test",
+    "test:stabilize": "playwright test --project=setup && playwright test --project=chromium --workers=1 --reporter=list --trace=retain-on-failure",
+    "test:api:serial": "playwright test --project=api --workers=1 --reporter=list --trace=retain-on-failure",
+    "test:api:anonymous": "playwright test --project=api-anonymous --workers=1 --reporter=list",
+    "test:api:authenticated": "playwright test --project=api --workers=1 --reporter=list",
+    "test:api:all": "npm run test:api:anonymous && npm run test:api:authenticated",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:ui": "playwright test --ui",
